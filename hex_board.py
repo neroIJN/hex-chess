@@ -36,6 +36,7 @@ class HexBoard:
         self.size = size
         self.radius = hex_radius
         self.tiles: Dict[Tuple[int, int], HexTile] = {}
+        self.current_turn = "white"  # Track whose turn it is
         self._generate_tiles()
         
     def _generate_tiles(self):
@@ -114,11 +115,22 @@ class HexBoard:
         from_tile = self.get_tile(from_q, from_r)
         to_tile = self.get_tile(to_q, to_r)
         
-        if from_tile and to_tile and from_tile.has_piece() and from_tile != to_tile:
-            to_tile.piece = from_tile.piece
-            from_tile.remove_piece()
-            return True
-        return False
+        if not from_tile or not to_tile or not from_tile.has_piece() or from_tile == to_tile:
+            return False
+        
+        piece_color, _ = from_tile.get_piece()
+        
+        # Check if it's this color's turn
+        if piece_color != self.current_turn:
+            return False
+        
+        # Make the move
+        to_tile.piece = from_tile.piece
+        from_tile.remove_piece()
+        
+        # Switch turns
+        self.current_turn = "black" if self.current_turn == "white" else "white"
+        return True
     
     def get_hex_corners(self, center_x: float, center_y: float) -> list:
         """Calculate the six corner points of a hexagon."""
@@ -152,6 +164,10 @@ class HexBoard:
             return []
         
         piece_color, piece_name = tile.get_piece()
+        
+        # Only show legal moves if it's this piece's turn
+        if piece_color != self.current_turn:
+            return []
         
         if piece_name == "pawn":
             return self._get_pawn_moves(q, r, piece_color)
