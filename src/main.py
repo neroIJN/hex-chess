@@ -131,7 +131,7 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                # Check if reset button was clicked
+                # check if reset button was clicked
                 if reset_hover:
                     setup_initial_board(board)
                     selected_tile = None
