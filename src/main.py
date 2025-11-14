@@ -1,5 +1,6 @@
 import pygame
 import math
+import copy
 from typing import Tuple
 from constants import *
 from hex_board import HexBoard
@@ -131,13 +132,15 @@ def main():
     button_x = window_w - button_width - 10
     button_y = 10
     reset_button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
-    
+    undo_button_rect = pygame.Rect(button_x, button_y + button_height + 10, button_width, button_height)
+
     # For piece dragging
     selected_tile = None
     dragging = False
     drag_piece = None
     legal_moves = []  # Store legal moves for selected piece
-    
+    history = [] # store previous board states (deep copies)
+     
     # Font for info
     font = pygame.font.Font(None, 24)
     small_font = pygame.font.Font(None, 18)
@@ -147,28 +150,31 @@ def main():
     while running:
         mouse_pos = pygame.mouse.get_pos()
         hovered_coord = board.pixel_to_axial(mouse_pos[0], mouse_pos[1], center_x, center_y)
-        button_hovered = reset_button_rect.collidepoint(mouse_pos)
-        
+        reset_hover = reset_button_rect.collidepoint(mouse_pos)
+        undo_hover = undo_button_rect.collidepoint(mouse_pos)
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False
-                elif event.key == pygame.K_r:  # R key also resets
-                    setup_initial_board(board)
-                    selected_tile = None
-                    dragging = False
-                    drag_piece = None
-                    legal_moves = []
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 # Check if reset button was clicked
-                if button_hovered:
+                if reset_hover:
                     setup_initial_board(board)
                     selected_tile = None
                     dragging = False
                     drag_piece = None
                     legal_moves = []
+                    history = []
+                elif undo_hover:
+                    if history:
+                        board = history.pop()
+                        selected_tile = None
+                        dragging = False
+                        drag_piece = None
+                        legal_moves = []
                 elif hovered_coord:
                     tile = board.get_tile(*hovered_coord)
                     if tile and tile.has_piece():
@@ -185,6 +191,7 @@ def main():
                 if dragging and selected_tile and hovered_coord:
                     # Only move if destination is a legal move
                     if hovered_coord in legal_moves:
+                        history.append(copy.deepcopy(board))
                         move_made = board.move_piece(selected_tile[0], selected_tile[1], 
                                        hovered_coord[0], hovered_coord[1])
                 
@@ -266,17 +273,21 @@ def main():
             screen.blit(coord_text, (10, 55))
         
         # Draw reset button
-        button_color = (100, 200, 100) if button_hovered else (70, 170, 70)
+        button_color = (100, 200, 100) if reset_hover else (70, 170, 70)
         pygame.draw.rect(screen, button_color, reset_button_rect, border_radius=5)
-        pygame.draw.rect(screen, (40, 40, 40), reset_button_rect, 2, border_radius=5)
-        
+        pygame.draw.rect(screen, (40, 40, 40), reset_button_rect, 2, border_radius=5)        
         reset_text = small_font.render("RESET", True, (255, 255, 255))
         reset_text_rect = reset_text.get_rect(center=reset_button_rect.center)
         screen.blit(reset_text, reset_text_rect)
         
-        # Show keyboard shortcut hint
-        hint_text = small_font.render("Press R to reset", True, (100, 100, 100))
-        screen.blit(hint_text, (window_w - 120, button_y + button_height + 5))
+        # Draw undo button below reset (disabled when no history)
+        undo_enabled = len(history) > 0
+        undo_color = (100, 150, 250) if (undo_hover and undo_enabled) else ((80, 130, 220) if undo_enabled else (140, 140, 140))
+        pygame.draw.rect(screen, undo_color, undo_button_rect, border_radius=5)
+        pygame.draw.rect(screen, (40, 40, 40), undo_button_rect, 2, border_radius=5)
+        undo_text = small_font.render("UNDO", True, (255, 255, 255) if undo_enabled else (200, 200, 200))
+        undo_text_rect = undo_text.get_rect(center=undo_button_rect.center)
+        screen.blit(undo_text, undo_text_rect)
         
         # Get and display game status
         game_status = board.get_game_status()
