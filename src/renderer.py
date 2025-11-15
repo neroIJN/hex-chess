@@ -3,6 +3,7 @@ import pygame
 from typing import Tuple
 from constants import *
 from game import MoveValidator
+from engine import ChessEngine
 
 def draw_hexagon(surface: pygame.Surface, center: Tuple[float, float],
                  radius: float, color: Tuple[int, int, int],
@@ -180,5 +181,44 @@ class Renderer:
             pygame.draw.rect(screen, (220, 220, 220), bg_rect, border_radius=5)
             pygame.draw.rect(screen, (100, 100, 100), bg_rect, 3, border_radius=5)
             screen.blit(status_text, status_rect)
+
+        # Draw evaluation bar on the left: white advantage fills upward, black fills downward
+        score, total = ChessEngine.evaluate(self.board)
+        frac = 0.0
+        if total and total > 0:
+            # fraction in range -1..1
+            frac = max(-1.0, min(1.0, score / float(total)))
+
+        bar_width = 20
+        bar_x = 10
+        bar_y = 60
+        bar_height = max(80, self.window_h - 140)
+        center_y = bar_y + bar_height / 2
+        half = bar_height / 2
+
+        # Bar background and outline
+        pygame.draw.rect(screen, (200, 200, 200), (bar_x, bar_y, bar_width, bar_height), border_radius=6)
+        pygame.draw.rect(screen, (0, 0, 0), (bar_x, bar_y, bar_width, bar_height), 2, border_radius=6)
+
+        # Fill depending on advantage
+        inner_x = bar_x + 2
+        inner_w = bar_width - 4
+        if frac > 0:
+            fill_h = int(frac * half)
+            fill_rect = pygame.Rect(inner_x, int(center_y - fill_h), inner_w, max(1, fill_h))
+            pygame.draw.rect(screen, (245, 245, 245), fill_rect, border_radius=4)
+        elif frac < 0:
+            fill_h = int(-frac * half)
+            fill_rect = pygame.Rect(inner_x, int(center_y), inner_w, max(1, fill_h))
+            pygame.draw.rect(screen, (30, 30, 30), fill_rect, border_radius=4)
+
+        # Center neutral marker
+        pygame.draw.line(screen, (0, 0, 0), (bar_x, center_y), (bar_x + bar_width, center_y), 2)
+
+        # Numeric evaluation display above bar
+        eval_color = (0, 0, 0) if score >= 0 else (255, 255, 255)
+        eval_text = self.small_font.render(f"{int(score):+d}", True, eval_color)
+        eval_rect = eval_text.get_rect(center=(bar_x + bar_width // 2, bar_y - 12))
+        screen.blit(eval_text, eval_rect)
 
         pygame.display.flip()

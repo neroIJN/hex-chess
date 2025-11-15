@@ -143,6 +143,10 @@ def main():
                 # check if reset button was clicked
                 if reset_hover:
                     setup_initial_board(board)
+                    # Ensure renderer and move validator reference the same board
+                    renderer.board = board
+                    move_validator.board = board
+                    move_validator.move_generator.board = board
                     selected_tile = None
                     dragging = False
                     drag_piece = None
@@ -152,6 +156,10 @@ def main():
                     if history:
                         board = history.pop()
                         renderer.board = board
+                        # Ensure renderer and move validator reference the same board
+                        renderer.board = board
+                        move_validator.board = board
+                        move_validator.move_generator.board = board
                         selected_tile = None
                         dragging = False
                         drag_piece = None
