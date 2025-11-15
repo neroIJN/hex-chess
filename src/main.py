@@ -4,6 +4,7 @@ from constants import *
 from hex_board import HexBoard
 from asset_manager import PieceImageManager
 from renderer import Renderer
+from game import MoveValidator
 
 def setup_initial_board(board: HexBoard):
     """Set up the initial chess piece positions."""
@@ -119,6 +120,7 @@ def main():
     turn_font = pygame.font.Font(None, 32)
 
     renderer = Renderer(board, piece_manager, font, small_font, turn_font, window_w, window_h)
+    move_validator = MoveValidator(board)
     
     running = True
     while running:
@@ -157,7 +159,7 @@ def main():
                             dragging = True
                             drag_piece = tile.get_piece()
                             # Calculate legal moves for this piece (check-aware)
-                            legal_moves = board.get_legal_moves_with_check(*hovered_coord)
+                            legal_moves = move_validator.get_legal_moves_with_check(*hovered_coord)
             elif event.type == pygame.MOUSEBUTTONUP:
                 move_made = False
                 if dragging and selected_tile and hovered_coord:

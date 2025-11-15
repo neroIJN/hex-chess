@@ -2,6 +2,7 @@ import math
 import pygame
 from typing import Tuple
 from constants import *
+from game import MoveValidator
 
 def draw_hexagon(surface: pygame.Surface, center: Tuple[float, float],
                  radius: float, color: Tuple[int, int, int],
@@ -134,7 +135,8 @@ class Renderer:
         screen.blit(undo_text, undo_text_rect)
 
         # Get and display game status
-        game_status = self.board.get_game_status()
+        move_validator = MoveValidator(self.board)
+        game_status = move_validator.get_game_status()
         status_y = self.window_h - 40
 
         if game_status == 'check':
