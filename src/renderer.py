@@ -45,13 +45,21 @@ class Renderer:
 
     def render(self, screen, center_x, center_y, mouse_pos, hovered_coord,
                selected_tile, dragging, drag_piece, legal_moves,
-               reset_button_rect, undo_button_rect, reset_hover, undo_hover, history):
+               reset_button_rect, undo_button_rect, flip_button_rect,
+               reset_hover, undo_hover, flip_hover, history):
         # Clear screen
         screen.fill(BACKGROUND)
 
         # Draw all hexagons and pieces
         for (q, r), tile in self.board.tiles.items():
-            x, y = self.board.axial_to_pixel(q, r, center_x, center_y)
+            # If the board is flipped, render tile (q,r) at the pixel
+            # position of (-q,-r) so the visual orientation is rotated 180°.
+            if getattr(self.board, 'flipped', False):
+                display_q, display_r = -q, -r
+            else:
+                display_q, display_r = q, r
+
+            x, y = self.board.axial_to_pixel(display_q, display_r, center_x, center_y)
             tile.pixel_pos = (x, y)
 
             # Highlight if selected or hovered
@@ -133,6 +141,14 @@ class Renderer:
         undo_text = self.small_font.render("UNDO", True, (255, 255, 255) if undo_enabled else (200, 200, 200))
         undo_text_rect = undo_text.get_rect(center=undo_button_rect.center)
         screen.blit(undo_text, undo_text_rect)
+
+        # Draw flip button below undo
+        flip_color = (200, 150, 100) if flip_hover else (170, 120, 80)
+        pygame.draw.rect(screen, flip_color, flip_button_rect, border_radius=5)
+        pygame.draw.rect(screen, (40, 40, 40), flip_button_rect, 2, border_radius=5)
+        flip_text = self.small_font.render("FLIP", True, (255, 255, 255))
+        flip_text_rect = flip_text.get_rect(center=flip_button_rect.center)
+        screen.blit(flip_text, flip_text_rect)
 
         # Get and display game status
         move_validator = MoveValidator(self.board)

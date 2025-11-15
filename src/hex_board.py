@@ -38,6 +38,7 @@ class HexBoard:
         self.radius = hex_radius
         self.tiles: Dict[Tuple[int, int], HexTile] = {}
         self.current_turn = "white"  # Track whose turn it is
+        self.flipped = False
         self._generate_tiles()
         self.move_generator = MoveGenerator(self)
         
@@ -159,3 +160,6 @@ class HexBoard:
                 neighbors.append((nq, nr))
         return neighbors
     
+    def toggle_flip(self):
+        """Toggle the visual flipped state of the board."""
+        self.flipped = not self.flipped

@@ -106,6 +106,7 @@ def main():
     button_y = 10
     reset_button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
     undo_button_rect = pygame.Rect(button_x, button_y + button_height + 10, button_width, button_height)
+    flip_button_rect = pygame.Rect(button_x, button_y + (button_height + 10) * 2, button_width, button_height)
 
     # For piece dragging
     selected_tile = None
@@ -126,8 +127,14 @@ def main():
     while running:
         mouse_pos = pygame.mouse.get_pos()
         hovered_coord = board.pixel_to_axial(mouse_pos[0], mouse_pos[1], center_x, center_y)
+        # If the board is  flipped, the pixel mapping is reversed
+        # so convert the hovered coordinate back into board/data coordinates.
+        if hovered_coord and getattr(board, 'flipped', False):
+            hovered_coord = (-hovered_coord[0], -hovered_coord[1])
+
         reset_hover = reset_button_rect.collidepoint(mouse_pos)
         undo_hover = undo_button_rect.collidepoint(mouse_pos)
+        flip_hover = flip_button_rect.collidepoint(mouse_pos)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -149,6 +156,8 @@ def main():
                         dragging = False
                         drag_piece = None
                         legal_moves = []
+                elif flip_hover:
+                    board.toggle_flip()
                 elif hovered_coord:
                     tile = board.get_tile(*hovered_coord)
                     if tile and tile.has_piece():
@@ -180,8 +189,9 @@ def main():
         
         # Draw all hexagons and pieces
         renderer.render(screen, center_x, center_y, mouse_pos, hovered_coord,
-                        selected_tile, dragging, drag_piece, legal_moves,
-                        reset_button_rect, undo_button_rect, reset_hover, undo_hover, history)
+                selected_tile, dragging, drag_piece, legal_moves,
+                reset_button_rect, undo_button_rect, flip_button_rect,
+                reset_hover, undo_hover, flip_hover, history)
         
         clock.tick(60)
     
