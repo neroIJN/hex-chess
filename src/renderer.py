@@ -3,7 +3,7 @@ import pygame
 from typing import Tuple
 from constants import *
 from game import MoveValidator
-from engine import ChessEngine
+from evaluation import Evaluator
 
 def draw_hexagon(surface: pygame.Surface, center: Tuple[float, float],
                  radius: float, color: Tuple[int, int, int],
@@ -183,7 +183,7 @@ class Renderer:
             screen.blit(status_text, status_rect)
 
         # Draw evaluation bar on the left: white advantage fills upward, black fills downward
-        score, total = ChessEngine.evaluate(self.board)
+        score, total = Evaluator.evaluate(self.board)
         frac = 0.0
         if total and total > 0:
             # fraction in range -1..1
