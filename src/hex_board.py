@@ -41,6 +41,7 @@ class HexBoard:
         self.flipped = False
         self.en_passant_target = None
         self.pending_promotion = None
+        self.captured_pieces = {"white": [], "black": []}
         self._generate_tiles()
         self.move_generator = MoveGenerator(self)
         
@@ -129,6 +130,10 @@ class HexBoard:
         if piece_color != self.current_turn:
             return False
         
+        # Track captured piece before removing it
+        if to_tile.has_piece():
+            captured_color, captured_piece = to_tile.get_piece()
+            self.captured_pieces[captured_color].append(captured_piece)
         # Handle en-passant capture
         if piece_name == "pawn" and (to_q, to_r) == self.en_passant_target:
         # Remove the captured pawn
@@ -139,6 +144,9 @@ class HexBoard:
         
             captured_tile = self.get_tile(*captured_pawn_pos)
             if captured_tile:
+                # track en passant capture
+                captured_color, captured_piece = captured_tile.get_piece()
+                self.captured_pieces[captured_color].append(captured_piece)
                 captured_tile.remove_piece()
 
         # Clear en-passant target before checking for new two-square pawn moves

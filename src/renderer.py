@@ -44,6 +44,123 @@ class Renderer:
         self.window_w = window_w
         self.window_h = window_h
 
+    def _draw_captured_pieces(self, screen, center_x, center_y):
+        """Draw captured pieces - Green box (left) = your captures, Red box (right) = your losses."""
+
+        # ---- UI constants ----
+        piece_size = max(26, int(self.board.radius * 0.8))
+        h_space = piece_size + 4
+        v_space = piece_size + 4
+        pieces_per_row = 2
+
+        header_h = 22
+        section_pad = 6
+        bottom_pad = 6
+        side_pad = 8
+
+        available_top = 250
+        available_h = self.window_h - available_top - 70
+
+        # ---- Get captured pieces ----
+        white_captured = self.board.captured_pieces.get("white", [])
+        black_captured = self.board.captured_pieces.get("black", [])
+
+        if getattr(self.board, "flipped", False):
+            # Viewing from black side
+            green_pieces, green_color = white_captured, "white"
+            red_pieces, red_color = black_captured, "black"
+        else:
+            # Viewing from white side
+            green_pieces, green_color = black_captured, "black"
+            red_pieces, red_color = white_captured, "white"
+
+        # ---- Shared panel rendering function ----
+        def draw_panel(pieces, piece_color, panel_x, label, border_color, text_color):
+            if not pieces:
+                return
+
+            # Determine needed rows
+            rows = (len(pieces) + pieces_per_row - 1) // pieces_per_row
+            panel_h = header_h + section_pad + (rows * v_space) + bottom_pad
+
+            # Handle vertical overflow
+            if panel_h > available_h:
+                max_rows = max(1, (available_h - header_h - section_pad - bottom_pad) // v_space)
+                rows = max_rows
+                panel_h = header_h + section_pad + (rows * v_space) + bottom_pad
+                max_pieces = rows * pieces_per_row
+                display = pieces[-max_pieces:]
+                overflow = len(pieces) > max_pieces
+            else:
+                display = pieces
+                overflow = False
+
+            # Panel position
+            panel_y = available_top
+            panel_w = pieces_per_row * h_space + side_pad * 2 + 10
+            panel_rect = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
+
+            # Background + border
+            panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            pygame.draw.rect(panel_surf, (245, 245, 245, 230), panel_surf.get_rect(), border_radius=6)
+            screen.blit(panel_surf, panel_rect)
+            pygame.draw.rect(screen, border_color, panel_rect, 3, border_radius=6)
+
+            # Header label
+            text = self.small_font.render(label, True, text_color)
+            text_rect = text.get_rect(midleft=(panel_x + 7, panel_y + header_h // 2))
+            screen.blit(text, text_rect)
+
+            # Count badge (top right)
+            badge = pygame.Surface((22, 18), pygame.SRCALPHA)
+            pygame.draw.rect(badge, (*border_color[:3], 230), badge.get_rect(), border_radius=9)
+            screen.blit(badge, (panel_x + panel_w - 27, panel_y + 2))
+            count = self.small_font.render(str(len(pieces)), True, (255, 255, 255))
+            count_rect = count.get_rect(center=(panel_x + panel_w - 16, panel_y + 11))
+            screen.blit(count, count_rect)
+
+            # Draw piece icons in grid
+            start_y = panel_y + header_h + section_pad
+            for i, piece_name in enumerate(display):
+                row, col = divmod(i, pieces_per_row)
+                x = panel_x + side_pad + col * h_space + h_space // 2
+                y = start_y + row * v_space + v_space // 2
+
+                img = self.piece_manager.get_image(piece_color, piece_name)
+                if img:
+                    scaled = pygame.transform.smoothscale(img, (piece_size, piece_size))
+                    screen.blit(scaled, scaled.get_rect(center=(x, y)))
+
+            # Overflow indicator
+            if overflow:
+                extra = len(pieces) - len(display)
+                overflow_txt = self.small_font.render(f"↑ +{extra}", True, text_color)
+                overflow_rect = overflow_txt.get_rect(center=(panel_x + panel_w // 2, start_y + 8))
+                bg = overflow_rect.inflate(8, 4)
+                pygame.draw.rect(screen, (255, 255, 255, 200), bg, border_radius=3)
+                screen.blit(overflow_txt, overflow_rect)
+
+        # ---- Draw Left + Right Panels ----
+        panel_w = pieces_per_row * h_space + side_pad * 2 + 10
+
+        draw_panel(
+            green_pieces,
+            green_color,
+            panel_x=50,
+            label="Captured",
+            border_color=(50, 200, 50),
+            text_color=(40, 120, 40),
+        )
+
+        draw_panel(
+            red_pieces,
+            red_color,
+            panel_x=self.window_w - panel_w - 30,
+            label="Lost",
+            border_color=(200, 50, 50),
+            text_color=(150, 40, 40),
+        )
+
     def render(self, screen, center_x, center_y, mouse_pos, hovered_coord,
                selected_tile, dragging, drag_piece, legal_moves,
                reset_button_rect, undo_button_rect, flip_button_rect,
@@ -182,6 +299,8 @@ class Renderer:
             pygame.draw.rect(screen, (100, 100, 100), bg_rect, 3, border_radius=5)
             screen.blit(status_text, status_rect)
 
+        # Draw captured pieces before evaluation bar
+        self._draw_captured_pieces(screen, center_x, center_y)
         # Draw evaluation bar on the left: white advantage fills upward, black fills downward
         score, total = Evaluator.evaluate(self.board)
         frac = 0.0
