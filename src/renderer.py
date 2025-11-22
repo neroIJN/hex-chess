@@ -183,7 +183,7 @@ class Renderer:
             screen.blit(status_text, status_rect)
 
         # Draw evaluation bar on the left: white advantage fills upward, black fills downward
-        score, total = Evaluator.evaluate(self.board)
+        score, total, phase = Evaluator.evaluate(self.board)
         frac = 0.0
         if total and total > 0:
             # fraction in range -1..1
@@ -218,7 +218,7 @@ class Renderer:
         # Numeric evaluation display above bar
         eval_color = (0, 0, 0) if score >= 0 else (255, 255, 255)
         eval_text = self.small_font.render(f"{int(score):+d}", True, eval_color)
-        eval_rect = eval_text.get_rect(center=(bar_x + bar_width // 2, bar_y - 12))
+        eval_rect = eval_text.get_rect(center=(bar_x + bar_width // 2, bar_y + bar_height + 12))
         screen.blit(eval_text, eval_rect)
 
          # Draw promotion dialog if needed
