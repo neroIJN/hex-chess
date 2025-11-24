@@ -5,6 +5,7 @@ from hex_board import HexBoard
 from asset_manager import PieceImageManager
 from renderer import Renderer
 from game import MoveValidator
+from evaluation import Evaluator
 
 def setup_initial_board(board: HexBoard):
     """Set up the initial chess piece positions."""
@@ -129,6 +130,7 @@ def main():
 
     renderer = Renderer(board, piece_manager, font, small_font, turn_font, window_w, window_h)
     move_validator = MoveValidator(board)
+    Evaluator.debug_position(board)
     
     running = True
     while running:

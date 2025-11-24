@@ -326,9 +326,8 @@ class Renderer:
         # Center neutral marker
         pygame.draw.line(screen, (0, 0, 0), (bar_x, center_y), (bar_x + bar_width, center_y), 2)
 
-        # Numeric evaluation display above bar
-        eval_color = (0, 0, 0) if score >= 0 else (255, 255, 255)
-        eval_text = self.small_font.render(f"{int(score):+d}", True, eval_color)
+        # Numeric evaluation display below bar
+        eval_text = self.small_font.render(f"{int(score):+d}", True, (0, 0, 0))
         eval_rect = eval_text.get_rect(center=(bar_x + bar_width // 2, bar_y + bar_height + 12))
         screen.blit(eval_text, eval_rect)
 
