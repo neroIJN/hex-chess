@@ -177,7 +177,6 @@ class ChessEngine:
     def find_best_move(self) -> Optional[Tuple[Tuple[int,int], Tuple[int,int], float]]:
         """Search using minimax to find best move."""
         self.nodes_searched = 0
-        
         best_move = None
         best_value = float('-inf')
         
