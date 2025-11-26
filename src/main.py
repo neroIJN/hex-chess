@@ -104,11 +104,9 @@ async def main():
 
     #Initialize chess engine
     engine_thinking = False
-    chess_engine = ChessEngine(board, depth=COMPUTATION_DEPTH)
-    
-    # Add delay for engine move
-    engine_move_delay = 0 
-    ENGINE_DELAY_FRAMES = 30 # Wait 1 frame at 60fps before engine moves
+    # Create a separate board instance for the engine to search on
+    engine_board = HexBoard(BOARD_SIZE, scaled_radius)
+    chess_engine = ChessEngine(engine_board, depth=COMPUTATION_DEPTH)
     
     # Set up initial piece positions
     setup_initial_board(board)
@@ -132,7 +130,9 @@ async def main():
     dragging = False
     drag_piece = None
     legal_moves = []  # Store legal moves for selected piece
-    history = [] # store previous board states (deep copies)
+    
+    # only store move data
+    history = []  # List of tuples: (from_q, from_r, to_q, to_r, move_info_dict)
      
     # Font for info
     font = pygame.font.Font(None, 24)
@@ -141,7 +141,45 @@ async def main():
 
     renderer = Renderer(board, piece_manager, font, small_font, turn_font, window_w, window_h)
     move_validator = MoveValidator(board)
-    Evaluator.debug_position(board)
+    
+    async def make_engine_move():
+        """Async wrapper for engine move to prevent blocking."""
+        nonlocal engine_thinking, flip_locked
+        engine_thinking = True
+        flip_locked = True
+        
+        # Sync the engine's board with the display board before searching
+        import copy
+        engine_board.tiles = copy.deepcopy(board.tiles)
+        engine_board.current_turn = board.current_turn
+        engine_board.en_passant_target = board.en_passant_target
+        engine_board.pending_promotion = board.pending_promotion
+        engine_board.captured_pieces = copy.deepcopy(board.captured_pieces)
+        if hasattr(board, 'castling_rights'):
+            engine_board.castling_rights = copy.deepcopy(board.castling_rights)
+        
+        # Run engine computation in thread pool to avoid blocking
+        loop = asyncio.get_event_loop()
+        best_move = await loop.run_in_executor(None, chess_engine.find_best_move)
+        
+        # Apply the best move to the DISPLAY board (not engine board)
+        if best_move:
+            (from_q, from_r), (to_q, to_r), value = best_move
+            # Capture move info before making the move
+            move_info = board.capture_move_info(from_q, from_r, to_q, to_r)
+            
+            # Make the move on the display board
+            move_made = board.move_piece(from_q, from_r, to_q, to_r)
+            
+            if move_made:
+                history.append((from_q, from_r, to_q, to_r, move_info))
+                
+            # Handle auto-promotion if needed
+            if board.pending_promotion:
+                board.promote_pawn('queen')
+        
+        engine_thinking = False
+        flip_locked = False
     
     running = True
     while running:
@@ -172,10 +210,11 @@ async def main():
                 if board.pending_promotion and promotion_hover:
                     board.promote_pawn(promotion_hover)
                     promotion_buttons = {}
-                    # start engine delay after promotion
-                    if board.current_turn == chess_engine.engine_color:
-                        engine_move_delay = ENGINE_DELAY_FRAMES
+                    # Trigger engine move after promotion
+                    if board.current_turn == chess_engine.engine_color and not engine_thinking:
+                        asyncio.create_task(make_engine_move())
                     continue
+                    
                 # check if reset button was clicked
                 if reset_hover:
                     setup_initial_board(board)
@@ -188,24 +227,23 @@ async def main():
                     drag_piece = None
                     legal_moves = []
                     history = []
-                    engine_move_delay = 0
                     flip_locked = False
-                elif undo_hover:
+                elif undo_hover and not engine_thinking:
                     if history:
-                        board = history.pop()
-                        renderer.board = board
-                        # Ensure renderer and move validator reference the same board
-                        renderer.board = board
-                        move_validator.board = board
-                        move_validator.move_generator.board = board
+                        # Pop the last move
+                        move_data = history.pop()
+                        from_q, from_r, to_q, to_r, move_info = move_data
+                        
+                        # Undo the move on the board
+                        board.undo_move(from_q, from_r, to_q, to_r, move_info)
+                        
                         selected_tile = None
                         dragging = False
                         drag_piece = None
                         legal_moves = []
-                        engine_move_delay = 0
                 elif flip_hover:
                     board.toggle_flip()
-                elif hovered_coord:
+                elif hovered_coord and not engine_thinking:
                     tile = board.get_tile(*hovered_coord)
                     if tile and tile.has_piece():
                         piece_color, _ = tile.get_piece()
@@ -216,14 +254,24 @@ async def main():
                             drag_piece = tile.get_piece()
                             # Calculate legal moves for this piece (check-aware)
                             legal_moves = move_validator.get_legal_moves_with_check(*hovered_coord)
+                            
             elif event.type == pygame.MOUSEBUTTONUP:
                 move_made = False
-                if dragging and selected_tile and hovered_coord:
+                if dragging and selected_tile and hovered_coord and not engine_thinking:
                     # Only move if destination is a legal move
                     if hovered_coord in legal_moves:
-                        history.append(copy.deepcopy(board))
+                        # Capture move info before making the move
+                        move_info = board.capture_move_info(selected_tile[0], selected_tile[1],
+                                                            hovered_coord[0], hovered_coord[1])
+                        
+                        # Make the move
                         move_made = board.move_piece(selected_tile[0], selected_tile[1], 
                                        hovered_coord[0], hovered_coord[1])
+                        
+                        # Store lightweight history
+                        if move_made:
+                            history.append((selected_tile[0], selected_tile[1], 
+                                          hovered_coord[0], hovered_coord[1], move_info))
                 
                 # Always clear selection after mouse release
                 dragging = False
@@ -231,17 +279,9 @@ async def main():
                 drag_piece = None
                 legal_moves = []  # Clear legal moves
 
-                # start delay timer instead of immediate engine move
-                if move_made and board.current_turn == chess_engine.engine_color:
-                    flip_locked = True
-                    engine_move_delay = ENGINE_DELAY_FRAMES
-        
-        # Only trigger engine move after delay has elapsed
-        if engine_move_delay > 0:
-            engine_move_delay -= 1
-            if engine_move_delay == 0:
-                # Delay complete, now engine can move
-                chess_engine.play_best_move()
+                # Trigger engine move asynchronously
+                if move_made and board.current_turn == chess_engine.engine_color and not engine_thinking:
+                    asyncio.create_task(make_engine_move())
         
         # Clear screen
         screen.fill(BACKGROUND)

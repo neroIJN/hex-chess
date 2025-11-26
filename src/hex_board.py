@@ -253,6 +253,40 @@ class HexBoard:
         
         return True
 
+    def capture_move_info(self, from_q, from_r, to_q, to_r):
+        """Capture all info needed to undo a move."""
+        from_tile = self.get_tile(from_q, from_r)
+        to_tile = self.get_tile(to_q, to_r)
+        
+        move_info = {
+            'piece': from_tile.get_piece(),
+            'captured': to_tile.get_piece() if to_tile.has_piece() else None,
+            'en_passant_target': self.en_passant_target,
+            'castling_rights': getattr(self, 'castling_rights', {}).copy() if hasattr(self, 'castling_rights') else {},
+            # Add any other state you need to track
+        }
+        return move_info
+
+    def undo_move(self, from_q, from_r, to_q, to_r, move_info):
+        """Undo a move using captured info."""
+        # Move piece back
+        to_tile = self.get_tile(to_q, to_r)
+        from_tile = self.get_tile(from_q, from_r)
+        
+        from_tile.place_piece(*move_info['piece'])
+        to_tile.remove_piece()
+        
+        # Restore captured piece if any
+        if move_info['captured']:
+            to_tile.place_piece(*move_info['captured'])
+        
+        # Restore board state
+        self.en_passant_target = move_info['en_passant_target']
+        if hasattr(self, 'castling_rights'):
+            self.castling_rights = move_info['castling_rights']
+        
+        # Toggle turn back
+        self.current_turn = "white" if self.current_turn == "black" else "black"
 
 class HexGeometry:
     """Geometric calculations for hexagonal boards."""
